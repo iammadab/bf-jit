@@ -7,11 +7,10 @@ Computation Model
 - each machine instruction corresponds directly to hardware execution units
 - therefore: 
   - regardless of the source language, every computation must eventually be expressed as native machine instructions for the host
-
-
-- one can consider the hardware as the final layer (the layer that truly matters for execution)
+- one can consider the hardware as the final layer (the layer execution truly happens)
 - AOT pushes the computation down to this layer before execution
   - at runtime, the hardware executes the computation directly
-- Interpretation keeps the computation in a higher layer
+- interpretation keeps the computation at a higher layer
   - the computation exists as a description
-  - the hardware executes a machine that explains the computation  
+  - the hardware executes a machine that explains the computation
+- JIT moves computation to higher to lower layers, as it derives information at runtime
