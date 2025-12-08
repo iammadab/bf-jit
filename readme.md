@@ -1,4 +1,10 @@
-Exploring just in time (JIT) + ahead of time (AOT) compilation
-with the BrainFuck language (BF).
+JIT (just-in-time) and AOT (ahead-of-time) compilation exploration via the BF (brainfuck) language.
 
-Interpreter Overhead
+
+Computation Model
+=================
+- 
+
+Interpretation Overhead
+=======================
+
