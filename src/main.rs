@@ -22,7 +22,7 @@ fn main() {
     // compute jump table
     // given that the program isn't changing, we can compute
     // '[' and ']' match pc values once
-    // then armotize across loop iterations
+    // then amortize across loop iterations
     let mut jump_table = vec![0; instructions.len()];
     while pc < instructions.len() {
         let insn = instructions[pc];
