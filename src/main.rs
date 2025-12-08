@@ -1,11 +1,11 @@
+use std::io::Read;
+
 const MEMORY_SIZE: usize = 30_000;
 
 fn main() {
-    let mut memory = [0; 30_000];
+    let mut memory = [0; MEMORY_SIZE];
 
-    let program = "++++++++ ++++++++ ++++++++ ++++++++ ++++++++ ++++++++
->+++++
-[<+.>-]";
+    let program = "++++++++ ++++++++ ++++++++ ++++++++ ++++++++ ++++++++ >+++++ [<+.>-]";
 
     let mut instructions = Vec::with_capacity(program.len());
 
@@ -32,7 +32,7 @@ fn main() {
             // decrement the memory slot at the data ptr
             '-' => memory[data_ptr] -= 1,
             // print the content of the data ptr to stdout
-            '.' => println!("{}", memory[data_ptr]),
+            '.' => print!("{}", memory[data_ptr] as char),
             // read from stdin and write to memory slot at data ptr
             ',' => memory[data_ptr] = read_byte(),
             // jumps to the matching `]`
@@ -44,7 +44,7 @@ fn main() {
                     let saved_pc = pc;
 
                     pc += 1;
-                    while bracket_nesting > 1 && pc < instructions.len() {
+                    while bracket_nesting > 0 && pc < instructions.len() {
                         match instructions[pc] {
                             ']' => bracket_nesting -= 1,
                             '[' => bracket_nesting += 1,
@@ -67,7 +67,7 @@ fn main() {
                     // pc points to ']'
                     let saved_pc = pc;
 
-                    while bracket_nesting > 1 && pc > 0 {
+                    while bracket_nesting > 0 && pc > 0 {
                         pc -= 1;
                         match instructions[pc] {
                             '[' => bracket_nesting -= 1,
@@ -95,7 +95,7 @@ fn main() {
 
 fn read_byte() -> u8 {
     let mut buf = [0u8; 1];
-    match io::stdin().read(&mut buf) {
+    match std::io::stdin().read(&mut buf) {
         Ok(1) => buf[0],
         _ => 0,
     }
