@@ -2,15 +2,23 @@ JIT (just-in-time) and AOT (ahead-of-time) compilation exploration via the BF (b
 
 Computation Model
 =================
-- computation is the execution of a sequence of steps
-- hardware can only execute a very specific set of instructions
-- each machine instruction corresponds directly to hardware execution units
-- therefore: 
-  - regardless of the source language, every computation must eventually be expressed as native machine instructions for the host
-- one can consider the hardware as the final layer (the layer execution truly happens)
-- AOT pushes the computation down to this layer before execution
-  - at runtime, the hardware executes the computation directly
-- interpretation keeps the computation at a higher layer
-  - the computation exists as a description
-  - the hardware executes a machine that explains the computation
-- JIT moves computation to higher to lower layers, as it derives information at runtime
+Computation is the execution of a sequence of steps.
+
+Hardware can only execute a very specific set of instructions. Each machine
+instruction corresponds directly to hardware execution units.
+
+Therefore, regardless of the source language, every computation must
+eventually be expressed as native machine instructions for the host.
+
+The hardware can be considered the final layer, the layer where execution
+truly happens. All other layers exist only to prepare work for this layer.
+
+AOT pushes the computation down to this final layer before execution.
+At runtime, the hardware executes the computation directly.
+
+Interpretation keeps the computation at a higher layer. The computation exists
+as a description. The hardware executes a machine that explains the
+computation.
+
+JIT moves the computation from higher layers to lower layers as it derives
+information at runtime.
