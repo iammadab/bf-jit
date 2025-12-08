@@ -2,6 +2,7 @@ JIT (just-in-time) and AOT (ahead-of-time) compilation exploration via the BF (b
 
 Computation Model
 =================
+
 Computation is the execution of a sequence of steps.
 
 Hardware can only execute a very specific set of instructions. Each machine
