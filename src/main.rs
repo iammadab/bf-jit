@@ -1,11 +1,12 @@
-use std::io::Read;
+use std::{fs, io::Read};
 
 const MEMORY_SIZE: usize = 30_000;
 
 fn main() {
     let mut memory = [0; MEMORY_SIZE];
 
-    let program = "++++++++ ++++++++ ++++++++ ++++++++ ++++++++ ++++++++ >+++++ [<+.>-]";
+    let args = std::env::args().collect::<Vec<String>>();
+    let program = fs::read_to_string(&args[1]).unwrap();
 
     let mut instructions = Vec::with_capacity(program.len());
 
@@ -43,20 +44,18 @@ fn main() {
                     // pc points to '['
                     let saved_pc = pc;
 
-                    pc += 1;
-                    while bracket_nesting > 0 && pc < instructions.len() {
+                    while bracket_nesting > 0 {
+                        pc += 1;
+                        if pc >= instructions.len() {
+                            panic!("unmatched '[' at pc={}", saved_pc);
+                        }
+
                         match instructions[pc] {
                             ']' => bracket_nesting -= 1,
                             '[' => bracket_nesting += 1,
                             _ => {}
                         }
                     }
-
-                    if bracket_nesting != 0 {
-                        panic!("unmatched '[' at pc={}", saved_pc);
-                    }
-
-                    // TODO insert break here
                 }
             }
             // jumps to the matching '['
@@ -79,16 +78,11 @@ fn main() {
                     if bracket_nesting != 0 {
                         panic!("unmatched ']' at pc={}", saved_pc);
                     }
-
-                    // TODO insert break here
                 }
             }
             _ => {}
         }
 
-        // I don't think I should increment the PC in all cases
-        // I think for all the others I need to
-        // but I need to be careful around the branch statements
         pc += 1;
     }
 }
