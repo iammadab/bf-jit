@@ -23,11 +23,10 @@ enum Opcode {
 impl Display for Opcode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            // TODO fix here
-            Opcode::IncPtr(_) => write!(f, ">"),
-            Opcode::DecPtr(_) => write!(f, "<"),
-            Opcode::IncData(_) => write!(f, "+"),
-            Opcode::DecData(_) => write!(f, "-"),
+            Opcode::IncPtr(count) => write!(f, ">({})", count),
+            Opcode::DecPtr(count) => write!(f, "<({})", count),
+            Opcode::IncData(count) => write!(f, "+({})", count),
+            Opcode::DecData(count) => write!(f, "-({})", count),
             Opcode::ReadStdin => write!(f, ","),
             Opcode::WriteStdout => write!(f, "."),
             Opcode::JumpIfDataZero(_) => write!(f, "["),
