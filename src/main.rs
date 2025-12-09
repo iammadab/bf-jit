@@ -2,16 +2,18 @@ use std::{
     fmt::{self, Display},
     fs,
     io::Read,
+    iter::Peekable,
+    str::Chars,
 };
 
 const MEMORY_SIZE: usize = 30_000;
 
 #[derive(PartialEq, Clone, Hash, Eq, Debug)]
 enum Opcode {
-    IncPtr,
-    DecPtr,
-    IncData,
-    DecData,
+    IncPtr(u8),
+    DecPtr(u8),
+    IncData(u8),
+    DecData(u8),
     ReadStdin,
     WriteStdout,
     JumpIfDataZero(usize),
@@ -21,10 +23,11 @@ enum Opcode {
 impl Display for Opcode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Opcode::IncPtr => write!(f, ">"),
-            Opcode::DecPtr => write!(f, "<"),
-            Opcode::IncData => write!(f, "+"),
-            Opcode::DecData => write!(f, "-"),
+            // TODO fix here
+            Opcode::IncPtr(_) => write!(f, ">"),
+            Opcode::DecPtr(_) => write!(f, "<"),
+            Opcode::IncData(_) => write!(f, "+"),
+            Opcode::DecData(_) => write!(f, "-"),
             Opcode::ReadStdin => write!(f, ","),
             Opcode::WriteStdout => write!(f, "."),
             Opcode::JumpIfDataZero(_) => write!(f, "["),
@@ -43,12 +46,14 @@ impl Program {
 
         let mut bracket_stack = vec![];
 
-        for c in source.chars() {
-            let insn = match c {
-                '>' => Opcode::IncPtr,
-                '<' => Opcode::DecPtr,
-                '+' => Opcode::IncData,
-                '-' => Opcode::DecData,
+        let mut source_iter = source.chars().into_iter().peekable();
+
+        while source_iter.peek().is_some() {
+            let insn = match source_iter.next().unwrap() {
+                '>' => Opcode::IncPtr(count_occ('>', &mut source_iter)),
+                '<' => Opcode::DecPtr(count_occ('<', &mut source_iter)),
+                '+' => Opcode::IncData(count_occ('+', &mut source_iter)),
+                '-' => Opcode::DecData(count_occ('-', &mut source_iter)),
                 ',' => Opcode::ReadStdin,
                 '.' => Opcode::WriteStdout,
                 '[' => Opcode::JumpIfDataZero(instructions.len()),
@@ -93,13 +98,13 @@ impl Program {
 
             match insn {
                 // advance the data ptr to the right by 1
-                Opcode::IncPtr => data_ptr += 1,
+                Opcode::IncPtr(count) => data_ptr += *count as usize,
                 // advance the data ptr to the left by 1
-                Opcode::DecPtr => data_ptr -= 1,
+                Opcode::DecPtr(count) => data_ptr -= *count as usize,
                 // increment the memory slot at the data ptr
-                Opcode::IncData => memory[data_ptr] = memory[data_ptr].wrapping_add(1),
+                Opcode::IncData(count) => memory[data_ptr] = memory[data_ptr].wrapping_add(*count),
                 // decrement the memory slot at the data ptr
-                Opcode::DecData => memory[data_ptr] = memory[data_ptr].wrapping_sub(1),
+                Opcode::DecData(count) => memory[data_ptr] = memory[data_ptr].wrapping_sub(*count),
                 // print the content of the data ptr to stdout
                 Opcode::WriteStdout => print!("{}", memory[data_ptr] as char),
                 // read from stdin and write to memory slot at data ptr
@@ -148,6 +153,20 @@ fn read_byte() -> u8 {
         Ok(1) => buf[0],
         _ => 0,
     }
+}
+
+fn count_occ(val: char, iterator: &mut Peekable<Chars>) -> u8 {
+    let mut count = 1;
+    while let Some(c) = iterator.peek() {
+        if *c == val {
+            // consume
+            iterator.next();
+            count += 1;
+        } else {
+            break;
+        }
+    }
+    count
 }
 
 #[cfg(feature = "tracing")]
