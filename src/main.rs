@@ -16,6 +16,9 @@ enum Opcode {
     DecData(u8),
     ReadStdin,
     WriteStdout,
+    LOOP_SET_TO_ZERO,
+    LOOP_MOVE_PTR(u8, bool),
+    LOOP_MOVE_DATA(u8),
     JumpIfDataZero(usize),
     JumpIfDataNotZero(usize),
 }
@@ -29,6 +32,9 @@ impl Display for Opcode {
             Opcode::DecData(_) => write!(f, "-"),
             Opcode::ReadStdin => write!(f, ","),
             Opcode::WriteStdout => write!(f, "."),
+            Opcode::LOOP_SET_TO_ZERO => writeln!(f, "LOOP_SET_TO_ZERO"),
+            Opcode::LOOP_MOVE_PTR(_, _) => write!(f, "LOOP_MOVE_PTR"),
+            Opcode::LOOP_MOVE_DATA(_) => write!(f, "LOOP_MOVE_DATA"),
             Opcode::JumpIfDataZero(_) => write!(f, "["),
             Opcode::JumpIfDataNotZero(_) => write!(f, "]"),
         }
@@ -74,6 +80,7 @@ impl Program {
             // if it gives us nothing we continue as normal
             // biggest uncertainy is the replace range
             // v.truncate(len) then push
+            // next is to just implement loop optimization
             if let Opcode::JumpIfDataNotZero(closing_pc) = insn {
                 if bracket_stack.is_empty() {
                     panic!("unmatched ']' at pc={}", closing_pc);
@@ -93,37 +100,44 @@ impl Program {
             panic!("unmatched '[' at pc={}", bracket_stack[0]);
         }
 
-        let mut program = Self { instructions };
-        program.optimize_loops();
-
-        program
+        Self { instructions }
     }
 
-    // the goal here is to optimize loops
-    // we have three optimizations we are looking at
-    // LOOP_SET_TO_ZERO
-    //  [-]
-    //  the data ptr is fixed, and we just keep looping until it becomes a 0
-    // LOOP_MOVE_DATA
-    //  [-<<<+>>>]
-    //  with this we start at some location we reduce it by 1
-    //  move to some other location add 1 to it
-    //  then go back sub 1, add 1, ...
-    //  in effect it zeros out a, then adds the old value of a to value at b
-    // LOOP_MOVE_PTR
-    //  [>>>] and [<<<]
-    //  [>>>] jump the ptr by 3 until you hit a zero
-    //  basically this is strided search for 0
-
     // TODO add documentation regarding the approach taken
-    fn optimize_loops(&mut self) {
-        // what is the optimal way to do this?
-        // I can iterate over the instructions
-        // this is actually risky, because I already have branching instructions
-        // that are tied to the pc arrangement
-        // hence can we really optimize the loop?
-        // maybe instead when we get a closing loop, we should decide if we want
-        // to replace the entire loop with something else?
+    fn optimize_loops(insn: &[Opcode]) -> Option<Opcode> {
+        // okay so now I know what I am looking for in each
+        // I think it is safe to use a pointer of some kind
+        // then match
+
+        let insn_iter = insn.iter();
+
+        match insn_iter.next() {
+            Opcode::DecData(n) => {
+                match insn_iter.next() {
+                    // reached end of loop
+                    // Opcode::JumpIfDataNotZero(_) => Some(Opcode::Loop
+                }
+            }
+        }
+
+        // LOOP_SET_TO_ZERO
+        // [-] -> [ DEC_DATA(1) ]
+        // This idiom decrements the current cell until it reaches zero.
+        // Effectively: value_at(data_ptr) = 0.
+
+        // LOOP_MOV_DATA
+        // [-<<<+>>>] -> [DEC_DATA(1), DEC_PTR(n), INC_DATA(1), INC_PTR(n)]
+        // [->>>+<<<] -> [DEC_DATA(1), INC_PTR(n), INC_DATA(1), DEC_PTR(n)]
+        // These instruction patterns transfer the value at data_ptr to data_ptr ± n:
+        // they decrement the source cell to zero, and increment the target cell by the
+        // original value (i.e. dst = dst_old + src_old, src = 0).
+
+        // LOOP_MOVE_PTR
+        // [>>>..] -> [INC_PTR(n)]
+        // [<<<..] -> [DEC_PTR(n)]
+        // These loops move the data pointer in strides of n (either +n or -n),
+        // continuing as long as the current cell is non-zero. The loop stops
+        // when the pointer lands on a cell containing 0.y stride n, until it lands on a cell that contains a 0
         todo!()
     }
 
@@ -157,6 +171,23 @@ impl Program {
                 Opcode::WriteStdout => print!("{}", memory[data_ptr] as char),
                 // read from stdin and write to memory slot at data ptr
                 Opcode::ReadStdin => memory[data_ptr] = read_byte(),
+                // TODO add documentation
+                Opcode::LOOP_SET_TO_ZERO => memory[data_ptr] = 0,
+                // TODO add documentation
+                Opcode::LOOP_MOVE_PTR(stride, positive) => {
+                    while memory[data_ptr] != 0 {
+                        if *positive {
+                            data_ptr += *stride as usize
+                        } else {
+                            data_ptr -= *stride as usize
+                        }
+                    }
+                }
+                // TODO add documentation
+                Opcode::LOOP_MOVE_DATA(stride) => {
+                    memory[data_ptr + *stride as usize] = memory[data_ptr];
+                    memory[data_ptr] = 0;
+                }
                 // jumps to the matching `]`
                 // if the current data location is zero
                 Opcode::JumpIfDataZero(closing_pc) => {
