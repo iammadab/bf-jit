@@ -1,7 +1,12 @@
-use std::{fs, io::Read};
+use std::{
+    fmt::{self, Display},
+    fs,
+    io::Read,
+};
 
 const MEMORY_SIZE: usize = 30_000;
 
+#[derive(PartialEq, Clone, Hash, Eq, Debug)]
 enum Opcode {
     IncPtr,
     DecPtr,
@@ -13,8 +18,23 @@ enum Opcode {
     JumpIfDataNotZero,
 }
 
+impl Display for Opcode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Opcode::IncPtr => write!(f, ">"),
+            Opcode::DecPtr => write!(f, "<"),
+            Opcode::IncData => write!(f, "+"),
+            Opcode::DecData => write!(f, "-"),
+            Opcode::ReadStdin => write!(f, ","),
+            Opcode::WriteStdout => write!(f, "."),
+            Opcode::JumpIfDataZero => write!(f, "["),
+            Opcode::JumpIfDataNotZero => write!(f, "]"),
+        }
+    }
+}
+
 struct Program {
-    instructions: Vec<char>,
+    instructions: Vec<Opcode>,
     jump_table: Vec<usize>,
 }
 
@@ -23,10 +43,19 @@ impl Program {
         let mut instructions = Vec::with_capacity(source.len());
 
         for c in source.chars() {
-            match c {
-                '>' | '<' | '+' | '-' | '.' | ',' | '[' | ']' => instructions.push(c),
-                _ => {}
-            }
+            let insn = match c {
+                '>' => Opcode::IncPtr,
+                '<' => Opcode::DecPtr,
+                '+' => Opcode::IncData,
+                '-' => Opcode::DecData,
+                ',' => Opcode::ReadStdin,
+                '.' => Opcode::WriteStdout,
+                '[' => Opcode::JumpIfDataZero,
+                ']' => Opcode::JumpIfDataNotZero,
+                _ => continue,
+            };
+
+            instructions.push(insn);
         }
 
         let mut pc = 0;
@@ -37,8 +66,8 @@ impl Program {
         // then amortize across loop iterations
         let mut jump_table = vec![0; instructions.len()];
         while pc < instructions.len() {
-            let insn = instructions[pc];
-            if insn == '[' {
+            let insn = &instructions[pc];
+            if insn == &Opcode::JumpIfDataZero {
                 // find pc for matching ']'
                 let mut bracket_nesting = 1;
                 let mut seek = pc;
@@ -50,8 +79,8 @@ impl Program {
                     }
 
                     match instructions[seek] {
-                        ']' => bracket_nesting -= 1,
-                        '[' => bracket_nesting += 1,
+                        Opcode::JumpIfDataNotZero => bracket_nesting -= 1,
+                        Opcode::JumpIfDataZero => bracket_nesting += 1,
                         _ => {}
                     }
                 }
@@ -78,39 +107,38 @@ impl Program {
         let mut insn_count = std::collections::HashMap::new();
 
         while pc < self.instructions.len() {
-            let insn = self.instructions[pc];
+            let insn = &self.instructions[pc];
 
             #[cfg(feature = "tracing")]
             insn_count.entry(insn).and_modify(|v| *v += 1).or_insert(1);
 
             match insn {
                 // advance the data ptr to the right by 1
-                '>' => data_ptr += 1,
+                Opcode::IncPtr => data_ptr += 1,
                 // advance the data ptr to the left by 1
-                '<' => data_ptr -= 1,
+                Opcode::DecPtr => data_ptr -= 1,
                 // increment the memory slot at the data ptr
-                '+' => memory[data_ptr] = memory[data_ptr].wrapping_add(1),
+                Opcode::IncData => memory[data_ptr] = memory[data_ptr].wrapping_add(1),
                 // decrement the memory slot at the data ptr
-                '-' => memory[data_ptr] = memory[data_ptr].wrapping_sub(1),
+                Opcode::DecData => memory[data_ptr] = memory[data_ptr].wrapping_sub(1),
                 // print the content of the data ptr to stdout
-                '.' => print!("{}", memory[data_ptr] as char),
+                Opcode::WriteStdout => print!("{}", memory[data_ptr] as char),
                 // read from stdin and write to memory slot at data ptr
-                ',' => memory[data_ptr] = read_byte(),
+                Opcode::ReadStdin => memory[data_ptr] = read_byte(),
                 // jumps to the matching `]`
                 // if the current data location is zero
-                '[' => {
+                Opcode::JumpIfDataZero => {
                     if memory[data_ptr] == 0 {
                         pc = self.jump_table[pc];
                     }
                 }
                 // jumps to the matching '['
                 // if the current data location is not zero
-                ']' => {
+                Opcode::JumpIfDataNotZero => {
                     if memory[data_ptr] != 0 {
                         pc = self.jump_table[pc];
                     }
                 }
-                _ => {}
             }
 
             pc += 1;
