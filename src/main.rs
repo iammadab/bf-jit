@@ -3,6 +3,7 @@ use std::{
     fs,
     io::Read,
     iter::Peekable,
+    slice::Iter,
     str::Chars,
 };
 
@@ -18,7 +19,7 @@ enum Opcode {
     WriteStdout,
     LOOP_SET_TO_ZERO,
     LOOP_MOVE_PTR(u8, bool),
-    LOOP_MOVE_DATA(u8),
+    LOOP_MOVE_DATA(u8, bool),
     JumpIfDataZero(usize),
     JumpIfDataNotZero(usize),
 }
@@ -34,7 +35,7 @@ impl Display for Opcode {
             Opcode::WriteStdout => write!(f, "."),
             Opcode::LOOP_SET_TO_ZERO => writeln!(f, "LOOP_SET_TO_ZERO"),
             Opcode::LOOP_MOVE_PTR(_, _) => write!(f, "LOOP_MOVE_PTR"),
-            Opcode::LOOP_MOVE_DATA(_) => write!(f, "LOOP_MOVE_DATA"),
+            Opcode::LOOP_MOVE_DATA(_, _) => write!(f, "LOOP_MOVE_DATA"),
             Opcode::JumpIfDataZero(_) => write!(f, "["),
             Opcode::JumpIfDataNotZero(_) => write!(f, "]"),
         }
@@ -103,42 +104,45 @@ impl Program {
         Self { instructions }
     }
 
-    // TODO add documentation regarding the approach taken
     fn optimize_loops(insn: &[Opcode]) -> Option<Opcode> {
-        // okay so now I know what I am looking for in each
-        // I think it is safe to use a pointer of some kind
-        // then match
+        match insn {
+            // LOOP_SET_TO_ZERO
+            // [-] -> [ DEC_DATA(1) ]
+            // This idiom decrements the current cell until it reaches zero.
+            // Effectively: value_at(data_ptr) = 0.
+            [Opcode::DecData(1)] => Some(Opcode::LOOP_SET_TO_ZERO),
 
-        let insn_iter = insn.iter();
+            // LOOP_MOV_DATA
+            // [->>>+<<<] -> [DEC_DATA(1), INC_PTR(n), INC_DATA(1), DEC_PTR(n)]
+            // [-<<<+>>>] -> [DEC_DATA(1), DEC_PTR(n), INC_DATA(1), INC_PTR(n)]
+            // These instruction patterns transfer the value at data_ptr to data_ptr ± n:
+            // they decrement the source cell to zero, and increment the target cell by the
+            // original value (i.e. dst = dst_old + src_old, src = 0).
+            [
+                Opcode::DecData(1),
+                Opcode::IncPtr(n),
+                Opcode::IncData(1),
+                Opcode::DecPtr(m),
+            ] if n == m => Some(Opcode::LOOP_MOVE_DATA(*n, true)),
 
-        match insn_iter.next() {
-            Opcode::DecData(n) => {
-                match insn_iter.next() {
-                    // reached end of loop
-                    // Opcode::JumpIfDataNotZero(_) => Some(Opcode::Loop
-                }
-            }
+            [
+                Opcode::DecData(1),
+                Opcode::DecPtr(n),
+                Opcode::IncData(1),
+                Opcode::IncPtr(m),
+            ] if n == m => Some(Opcode::LOOP_MOVE_DATA(*n, false)),
+
+            // LOOP_MOVE_PTR
+            // [>>>..] -> [INC_PTR(n)]
+            // [<<<..] -> [DEC_PTR(n)]
+            // These loops move the data pointer in strides of n (either +n or -n),
+            // continuing as long as the current cell is non-zero. The loop stops
+            // when the pointer lands on a cell containing 0.y stride n, until it lands on a cell that contains a 0
+            [Opcode::IncPtr(n)] => Some(Opcode::LOOP_MOVE_PTR(*n, true)),
+            [Opcode::DecPtr(n)] => Some(Opcode::LOOP_MOVE_PTR(*n, false)),
+
+            _ => None,
         }
-
-        // LOOP_SET_TO_ZERO
-        // [-] -> [ DEC_DATA(1) ]
-        // This idiom decrements the current cell until it reaches zero.
-        // Effectively: value_at(data_ptr) = 0.
-
-        // LOOP_MOV_DATA
-        // [-<<<+>>>] -> [DEC_DATA(1), DEC_PTR(n), INC_DATA(1), INC_PTR(n)]
-        // [->>>+<<<] -> [DEC_DATA(1), INC_PTR(n), INC_DATA(1), DEC_PTR(n)]
-        // These instruction patterns transfer the value at data_ptr to data_ptr ± n:
-        // they decrement the source cell to zero, and increment the target cell by the
-        // original value (i.e. dst = dst_old + src_old, src = 0).
-
-        // LOOP_MOVE_PTR
-        // [>>>..] -> [INC_PTR(n)]
-        // [<<<..] -> [DEC_PTR(n)]
-        // These loops move the data pointer in strides of n (either +n or -n),
-        // continuing as long as the current cell is non-zero. The loop stops
-        // when the pointer lands on a cell containing 0.y stride n, until it lands on a cell that contains a 0
-        todo!()
     }
 
     fn execute(&self) {
@@ -184,8 +188,14 @@ impl Program {
                     }
                 }
                 // TODO add documentation
-                Opcode::LOOP_MOVE_DATA(stride) => {
-                    memory[data_ptr + *stride as usize] = memory[data_ptr];
+                Opcode::LOOP_MOVE_DATA(stride, positive) => {
+                    let new_addr = if *positive {
+                        data_ptr + *stride as usize
+                    } else {
+                        data_ptr - *stride as usize
+                    };
+
+                    memory[new_addr] = memory[data_ptr];
                     memory[data_ptr] = 0;
                 }
                 // jumps to the matching `]`
