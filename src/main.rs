@@ -9,7 +9,6 @@ use std::{
 const MEMORY_SIZE: usize = 30_000;
 
 #[derive(PartialEq, Clone, Hash, Eq, Debug)]
-#[repr(u8)]
 enum Opcode {
     IncPtr(u8),
     DecPtr(u8),
