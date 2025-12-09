@@ -14,8 +14,8 @@ enum Opcode {
     DecData,
     ReadStdin,
     WriteStdout,
-    JumpIfDataZero,
-    JumpIfDataNotZero,
+    JumpIfDataZero(usize),
+    JumpIfDataNotZero(usize),
 }
 
 impl Display for Opcode {
@@ -27,20 +27,21 @@ impl Display for Opcode {
             Opcode::DecData => write!(f, "-"),
             Opcode::ReadStdin => write!(f, ","),
             Opcode::WriteStdout => write!(f, "."),
-            Opcode::JumpIfDataZero => write!(f, "["),
-            Opcode::JumpIfDataNotZero => write!(f, "]"),
+            Opcode::JumpIfDataZero(_) => write!(f, "["),
+            Opcode::JumpIfDataNotZero(_) => write!(f, "]"),
         }
     }
 }
 
 struct Program {
     instructions: Vec<Opcode>,
-    jump_table: Vec<usize>,
 }
 
 impl Program {
     fn from_source(source: String) -> Self {
         let mut instructions = Vec::with_capacity(source.len());
+
+        let mut bracket_stack = vec![];
 
         for c in source.chars() {
             let insn = match c {
@@ -50,52 +51,30 @@ impl Program {
                 '-' => Opcode::DecData,
                 ',' => Opcode::ReadStdin,
                 '.' => Opcode::WriteStdout,
-                '[' => Opcode::JumpIfDataZero,
-                ']' => Opcode::JumpIfDataNotZero,
+                '[' => Opcode::JumpIfDataZero(instructions.len()),
+                ']' => Opcode::JumpIfDataNotZero(instructions.len()),
                 _ => continue,
             };
+
+            if let Opcode::JumpIfDataZero(opening_pc) = insn {
+                bracket_stack.push(opening_pc);
+            }
+
+            if let Opcode::JumpIfDataNotZero(closing_pc) = insn {
+                if bracket_stack.is_empty() {
+                    panic!("unmatched ']' at pc={}", closing_pc);
+                }
+
+                let opening_pc = bracket_stack.pop().unwrap();
+                instructions[opening_pc] = Opcode::JumpIfDataZero(closing_pc);
+                instructions.push(Opcode::JumpIfDataNotZero(opening_pc));
+                continue;
+            }
 
             instructions.push(insn);
         }
 
-        let mut pc = 0;
-
-        // compute jump table
-        // given that the program isn't changing, we can compute
-        // '[' and ']' match pc values once
-        // then amortize across loop iterations
-        let mut jump_table = vec![0; instructions.len()];
-        while pc < instructions.len() {
-            let insn = &instructions[pc];
-            if insn == &Opcode::JumpIfDataZero {
-                // find pc for matching ']'
-                let mut bracket_nesting = 1;
-                let mut seek = pc;
-
-                while bracket_nesting > 0 {
-                    seek += 1;
-                    if seek >= instructions.len() {
-                        panic!("unmatched '[' at pc={}", pc);
-                    }
-
-                    match instructions[seek] {
-                        Opcode::JumpIfDataNotZero => bracket_nesting -= 1,
-                        Opcode::JumpIfDataZero => bracket_nesting += 1,
-                        _ => {}
-                    }
-                }
-
-                // map '[' to ']' and ']' to '['
-                jump_table[pc] = seek;
-                jump_table[seek] = pc;
-            }
-            pc += 1;
-        }
-
-        Self {
-            instructions,
-            jump_table,
-        }
+        Self { instructions }
     }
 
     fn execute(&self) {
@@ -127,16 +106,16 @@ impl Program {
                 Opcode::ReadStdin => memory[data_ptr] = read_byte(),
                 // jumps to the matching `]`
                 // if the current data location is zero
-                Opcode::JumpIfDataZero => {
+                Opcode::JumpIfDataZero(closing_pc) => {
                     if memory[data_ptr] == 0 {
-                        pc = self.jump_table[pc];
+                        pc = *closing_pc;
                     }
                 }
                 // jumps to the matching '['
                 // if the current data location is not zero
-                Opcode::JumpIfDataNotZero => {
+                Opcode::JumpIfDataNotZero(opening_pc) => {
                     if memory[data_ptr] != 0 {
-                        pc = self.jump_table[pc];
+                        pc = *opening_pc;
                     }
                 }
             }
