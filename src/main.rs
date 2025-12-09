@@ -64,6 +64,16 @@ impl Program {
                 bracket_stack.push(opening_pc);
             }
 
+            // at this point we get a closing square bracket
+            // this means we have closed some loop
+            // we also have the opening and closing value
+            // hence we can get some slice of instructions
+            // we pass this to the loop optimizer
+            // it gives us either nothing or something
+            // if it gives us something we replace the range with it
+            // if it gives us nothing we continue as normal
+            // biggest uncertainy is the replace range
+            // v.truncate(len) then push
             if let Opcode::JumpIfDataNotZero(closing_pc) = insn {
                 if bracket_stack.is_empty() {
                     panic!("unmatched ']' at pc={}", closing_pc);
@@ -78,7 +88,43 @@ impl Program {
             instructions.push(insn);
         }
 
-        Self { instructions }
+        // ensure we closed all loops
+        if !bracket_stack.is_empty() {
+            panic!("unmatched '[' at pc={}", bracket_stack[0]);
+        }
+
+        let mut program = Self { instructions };
+        program.optimize_loops();
+
+        program
+    }
+
+    // the goal here is to optimize loops
+    // we have three optimizations we are looking at
+    // LOOP_SET_TO_ZERO
+    //  [-]
+    //  the data ptr is fixed, and we just keep looping until it becomes a 0
+    // LOOP_MOVE_DATA
+    //  [-<<<+>>>]
+    //  with this we start at some location we reduce it by 1
+    //  move to some other location add 1 to it
+    //  then go back sub 1, add 1, ...
+    //  in effect it zeros out a, then adds the old value of a to value at b
+    // LOOP_MOVE_PTR
+    //  [>>>] and [<<<]
+    //  [>>>] jump the ptr by 3 until you hit a zero
+    //  basically this is strided search for 0
+
+    // TODO add documentation regarding the approach taken
+    fn optimize_loops(&mut self) {
+        // what is the optimal way to do this?
+        // I can iterate over the instructions
+        // this is actually risky, because I already have branching instructions
+        // that are tied to the pc arrangement
+        // hence can we really optimize the loop?
+        // maybe instead when we get a closing loop, we should decide if we want
+        // to replace the entire loop with something else?
+        todo!()
     }
 
     fn execute(&self) {
