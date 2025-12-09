@@ -3,6 +3,79 @@ use std::{fs, io::Read};
 #[cfg(feature = "tracing")]
 use std::collections::HashMap;
 
+// what is the goal here?
+// I need to parse this program into opcodes
+// these opcodes contain information that makes execution a lot easier
+// I think the final output should just be a vec of operations
+// with each operation having its extra arguments
+// then we have an interpretation function that executes this
+// the first version might be us replicating what we currently have
+
+struct Program {
+    instructions: Vec<char>,
+    jump_table: Vec<usize>,
+}
+
+impl Program {
+    fn from_source(source: String) -> Self {
+        // what does from_source do?
+        // it takes the program source, extracts the instructions and just pushes the right thing
+        // I think it should also compute the jump table
+
+        let mut instructions = Vec::with_capacity(source.len());
+
+        for c in source.chars() {
+            match c {
+                '>' | '<' | '+' | '-' | '.' | ',' | '[' | ']' => instructions.push(c),
+                _ => {}
+            }
+        }
+
+        let mut pc = 0;
+
+        // compute jump table
+        // given that the program isn't changing, we can compute
+        // '[' and ']' match pc values once
+        // then amortize across loop iterations
+        let mut jump_table = vec![0; instructions.len()];
+        while pc < instructions.len() {
+            let insn = instructions[pc];
+            if insn == '[' {
+                // find pc for matching ']'
+                let mut bracket_nesting = 1;
+                let mut seek = pc;
+
+                while bracket_nesting > 0 {
+                    seek += 1;
+                    if seek >= instructions.len() {
+                        panic!("unmatched '[' at pc={}", pc);
+                    }
+
+                    match instructions[seek] {
+                        ']' => bracket_nesting -= 1,
+                        '[' => bracket_nesting += 1,
+                        _ => {}
+                    }
+                }
+
+                // map '[' to ']' and ']' to '['
+                jump_table[pc] = seek;
+                jump_table[seek] = pc;
+            }
+            pc += 1;
+        }
+
+        Self {
+            instructions,
+            jump_table,
+        }
+    }
+
+    fn execute(&self) {
+        todo!()
+    }
+}
+
 const MEMORY_SIZE: usize = 30_000;
 
 fn main() {
