@@ -2,6 +2,17 @@ use std::{fs, io::Read};
 
 const MEMORY_SIZE: usize = 30_000;
 
+enum Opcode {
+    IncPtr,
+    DecPtr,
+    IncData,
+    DecData,
+    ReadStdin,
+    WriteStdout,
+    JumpIfDataZero,
+    JumpIfDataNotZero,
+}
+
 struct Program {
     instructions: Vec<char>,
     jump_table: Vec<usize>,
