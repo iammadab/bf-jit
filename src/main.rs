@@ -2,9 +2,6 @@ use std::{fs, io::Read};
 
 const MEMORY_SIZE: usize = 30_000;
 
-#[cfg(feature = "tracing")]
-use std::collections::HashMap;
-
 struct Program {
     instructions: Vec<char>,
     jump_table: Vec<usize>,
@@ -67,7 +64,7 @@ impl Program {
         let mut data_ptr = 0;
 
         #[cfg(feature = "tracing")]
-        let mut insn_count = HashMap::new();
+        let mut insn_count = std::collections::HashMap::new();
 
         while pc < self.instructions.len() {
             let insn = self.instructions[pc];
