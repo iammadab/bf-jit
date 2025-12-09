@@ -9,6 +9,7 @@ use std::{
 const MEMORY_SIZE: usize = 30_000;
 
 #[derive(PartialEq, Clone, Hash, Eq, Debug)]
+#[repr(u8)]
 enum Opcode {
     IncPtr(u8),
     DecPtr(u8),
@@ -23,10 +24,10 @@ enum Opcode {
 impl Display for Opcode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Opcode::IncPtr(count) => write!(f, ">({})", count),
-            Opcode::DecPtr(count) => write!(f, "<({})", count),
-            Opcode::IncData(count) => write!(f, "+({})", count),
-            Opcode::DecData(count) => write!(f, "-({})", count),
+            Opcode::IncPtr(_) => write!(f, ">"),
+            Opcode::DecPtr(_) => write!(f, "<"),
+            Opcode::IncData(_) => write!(f, "+"),
+            Opcode::DecData(_) => write!(f, "-"),
             Opcode::ReadStdin => write!(f, ","),
             Opcode::WriteStdout => write!(f, "."),
             Opcode::JumpIfDataZero(_) => write!(f, "["),
@@ -93,7 +94,10 @@ impl Program {
             let insn = &self.instructions[pc];
 
             #[cfg(feature = "tracing")]
-            insn_count.entry(insn).and_modify(|v| *v += 1).or_insert(1);
+            insn_count
+                .entry(format!("{}", insn))
+                .and_modify(|v| *v += 1)
+                .or_insert(1);
 
             match insn {
                 // advance the data ptr to the right by 1
