@@ -199,7 +199,7 @@ impl Program {
                         data_ptr - *stride as usize
                     };
 
-                    memory[new_addr] = memory[data_ptr];
+                    memory[new_addr] += memory[data_ptr];
                     memory[data_ptr] = 0;
                 }
                 // jumps to the matching `]`
