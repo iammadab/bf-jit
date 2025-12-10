@@ -3,7 +3,6 @@ use std::{
     fs,
     io::Read,
     iter::Peekable,
-    slice::Iter,
     str::Chars,
 };
 
@@ -17,9 +16,9 @@ enum Opcode {
     DecData(u8),
     ReadStdin,
     WriteStdout,
-    LOOP_SET_TO_ZERO,
-    LOOP_MOVE_PTR(u8, bool),
-    LOOP_MOVE_DATA(u8, bool),
+    LoopSetToZero,
+    LoopMovePtr(u8, bool),
+    LoopMoveData(u8, bool),
     JumpIfDataZero(usize),
     JumpIfDataNotZero(usize),
 }
@@ -33,9 +32,9 @@ impl Display for Opcode {
             Opcode::DecData(_) => write!(f, "-"),
             Opcode::ReadStdin => write!(f, ","),
             Opcode::WriteStdout => write!(f, "."),
-            Opcode::LOOP_SET_TO_ZERO => writeln!(f, "LOOP_SET_TO_ZERO"),
-            Opcode::LOOP_MOVE_PTR(_, _) => write!(f, "LOOP_MOVE_PTR"),
-            Opcode::LOOP_MOVE_DATA(_, _) => write!(f, "LOOP_MOVE_DATA"),
+            Opcode::LoopSetToZero => writeln!(f, "LOOP_SET_TO_ZERO"),
+            Opcode::LoopMovePtr(_, _) => write!(f, "LOOP_MOVE_PTR"),
+            Opcode::LoopMoveData(_, _) => write!(f, "LOOP_MOVE_DATA"),
             Opcode::JumpIfDataZero(_) => write!(f, "["),
             Opcode::JumpIfDataNotZero(_) => write!(f, "]"),
         }
@@ -110,7 +109,7 @@ impl Program {
             // [-] -> [ DEC_DATA(1) ]
             // This idiom decrements the current cell until it reaches zero.
             // Effectively: value_at(data_ptr) = 0.
-            [Opcode::DecData(1)] => Some(Opcode::LOOP_SET_TO_ZERO),
+            [Opcode::DecData(1)] => Some(Opcode::LoopSetToZero),
 
             // LOOP_MOV_DATA
             // [->>>+<<<] -> [DEC_DATA(1), INC_PTR(n), INC_DATA(1), DEC_PTR(n)]
@@ -123,14 +122,14 @@ impl Program {
                 Opcode::IncPtr(n),
                 Opcode::IncData(1),
                 Opcode::DecPtr(m),
-            ] if n == m => Some(Opcode::LOOP_MOVE_DATA(*n, true)),
+            ] if n == m => Some(Opcode::LoopMoveData(*n, true)),
 
             [
                 Opcode::DecData(1),
                 Opcode::DecPtr(n),
                 Opcode::IncData(1),
                 Opcode::IncPtr(m),
-            ] if n == m => Some(Opcode::LOOP_MOVE_DATA(*n, false)),
+            ] if n == m => Some(Opcode::LoopMoveData(*n, false)),
 
             // LOOP_MOVE_PTR
             // [>>>..] -> [INC_PTR(n)]
@@ -138,8 +137,8 @@ impl Program {
             // These loops move the data pointer in strides of n (either +n or -n),
             // continuing as long as the current cell is non-zero. The loop stops
             // when the pointer lands on a cell containing 0.y stride n, until it lands on a cell that contains a 0
-            [Opcode::IncPtr(n)] => Some(Opcode::LOOP_MOVE_PTR(*n, true)),
-            [Opcode::DecPtr(n)] => Some(Opcode::LOOP_MOVE_PTR(*n, false)),
+            [Opcode::IncPtr(n)] => Some(Opcode::LoopMovePtr(*n, true)),
+            [Opcode::DecPtr(n)] => Some(Opcode::LoopMovePtr(*n, false)),
 
             _ => None,
         }
@@ -176,9 +175,9 @@ impl Program {
                 // read from stdin and write to memory slot at data ptr
                 Opcode::ReadStdin => memory[data_ptr] = read_byte(),
                 // TODO add documentation
-                Opcode::LOOP_SET_TO_ZERO => memory[data_ptr] = 0,
+                Opcode::LoopSetToZero => memory[data_ptr] = 0,
                 // TODO add documentation
-                Opcode::LOOP_MOVE_PTR(stride, positive) => {
+                Opcode::LoopMovePtr(stride, positive) => {
                     while memory[data_ptr] != 0 {
                         if *positive {
                             data_ptr += *stride as usize
@@ -188,7 +187,7 @@ impl Program {
                     }
                 }
                 // TODO add documentation
-                Opcode::LOOP_MOVE_DATA(stride, positive) => {
+                Opcode::LoopMoveData(stride, positive) => {
                     let new_addr = if *positive {
                         data_ptr + *stride as usize
                     } else {
