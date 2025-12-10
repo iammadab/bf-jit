@@ -70,25 +70,30 @@ impl Program {
                 bracket_stack.push(opening_pc);
             }
 
-            // at this point we get a closing square bracket
-            // this means we have closed some loop
-            // we also have the opening and closing value
-            // hence we can get some slice of instructions
-            // we pass this to the loop optimizer
-            // it gives us either nothing or something
-            // if it gives us something we replace the range with it
-            // if it gives us nothing we continue as normal
-            // biggest uncertainy is the replace range
-            // v.truncate(len) then push
-            // next is to just implement loop optimization
+            // okay now I need to take advantage of the loop optimizer
+            // when the opcode is a jump instruction (the closing one)
+            // I need to pull out the appropriate slice
+            // then send that to the loop optimizer
             if let Opcode::JumpIfDataNotZero(closing_pc) = insn {
                 if bracket_stack.is_empty() {
                     panic!("unmatched ']' at pc={}", closing_pc);
                 }
 
                 let opening_pc = bracket_stack.pop().unwrap();
-                instructions[opening_pc] = Opcode::JumpIfDataZero(closing_pc);
-                instructions.push(Opcode::JumpIfDataNotZero(opening_pc));
+
+                // we haven't pushed yet, so that is good
+                // we just need to pull from opening_pc
+                let loop_slice = &instructions[opening_pc + 1..];
+                let optimized_loop = Self::optimize_loops(loop_slice);
+
+                if let Some(loop_insn) = optimized_loop {
+                    instructions.truncate(opening_pc);
+                    instructions.push(loop_insn)
+                } else {
+                    instructions[opening_pc] = Opcode::JumpIfDataZero(closing_pc);
+                    instructions.push(Opcode::JumpIfDataNotZero(opening_pc));
+                }
+
                 continue;
             }
 
@@ -268,4 +273,29 @@ fn comma_format(n: u64) -> String {
         out.push(c);
     }
     out.into_iter().rev().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Opcode, Program};
+
+    #[test]
+    fn loop_optimization() {
+        let program = Program::from_source(String::from("[-]"));
+        assert_eq!(program.instructions.len(), 1);
+        assert_eq!(program.instructions[0], Opcode::LoopSetToZero);
+
+        let program = Program::from_source(String::from("[>>]"));
+        assert_eq!(program.instructions.len(), 1);
+        assert_eq!(program.instructions[0], Opcode::LoopMovePtr(2, true));
+
+        let program = Program::from_source(String::from("[->>>+<<<]"));
+        assert_eq!(program.instructions.len(), 1);
+        assert_eq!(program.instructions[0], Opcode::LoopMoveData(3, true));
+
+        let program = Program::from_source(String::from(">>>[-<<<<<<+>>>>>>]"));
+        assert_eq!(program.instructions.len(), 2);
+        assert_eq!(program.instructions[0], Opcode::IncPtr(3));
+        assert_eq!(program.instructions[1], Opcode::LoopMoveData(6, false));
+    }
 }
