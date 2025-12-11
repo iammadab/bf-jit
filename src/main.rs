@@ -70,10 +70,6 @@ impl Program {
                 bracket_stack.push(opening_pc);
             }
 
-            // okay now I need to take advantage of the loop optimizer
-            // when the opcode is a jump instruction (the closing one)
-            // I need to pull out the appropriate slice
-            // then send that to the loop optimizer
             if let Opcode::JumpIfDataNotZero(closing_pc) = insn {
                 if bracket_stack.is_empty() {
                     panic!("unmatched ']' at pc={}", closing_pc);
@@ -81,8 +77,6 @@ impl Program {
 
                 let opening_pc = bracket_stack.pop().unwrap();
 
-                // we haven't pushed yet, so that is good
-                // we just need to pull from opening_pc
                 let loop_slice = &instructions[opening_pc + 1..];
                 let optimized_loop = Self::optimize_loops(loop_slice);
 
