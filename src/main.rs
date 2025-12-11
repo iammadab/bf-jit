@@ -193,14 +193,16 @@ impl Program {
                 }
                 // TODO add documentation
                 Opcode::LoopMoveData(stride, positive) => {
-                    let new_addr = if *positive {
-                        data_ptr + *stride as usize
-                    } else {
-                        data_ptr - *stride as usize
-                    };
+                    if memory[data_ptr] != 0 {
+                        let new_addr = if *positive {
+                            data_ptr + *stride as usize
+                        } else {
+                            data_ptr - *stride as usize
+                        };
 
-                    memory[new_addr] += memory[data_ptr];
-                    memory[data_ptr] = 0;
+                        memory[new_addr] += memory[data_ptr];
+                        memory[data_ptr] = 0;
+                    }
                 }
                 // jumps to the matching `]`
                 // if the current data location is zero
