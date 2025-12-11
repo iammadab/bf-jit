@@ -32,7 +32,7 @@ impl Display for Opcode {
             Opcode::DecData(_) => write!(f, "-"),
             Opcode::ReadStdin => write!(f, ","),
             Opcode::WriteStdout => write!(f, "."),
-            Opcode::LoopSetToZero => writeln!(f, "LOOP_SET_TO_ZERO"),
+            Opcode::LoopSetToZero => write!(f, "LOOP_SET_TO_ZERO"),
             Opcode::LoopMovePtr(_, _) => write!(f, "LOOP_MOVE_PTR"),
             Opcode::LoopMoveData(_, _) => write!(f, "LOOP_MOVE_DATA"),
             Opcode::JumpIfDataZero(_) => write!(f, "["),
