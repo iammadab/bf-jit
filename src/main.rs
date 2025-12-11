@@ -179,9 +179,9 @@ impl Program {
                 Opcode::WriteStdout => print!("{}", memory[data_ptr] as char),
                 // read from stdin and write to memory slot at data ptr
                 Opcode::ReadStdin => memory[data_ptr] = read_byte(),
-                // TODO add documentation
+                // set the current memory value to 0
                 Opcode::LoopSetToZero => memory[data_ptr] = 0,
-                // TODO add documentation
+                // advance the data ptr by +/- stride
                 Opcode::LoopMovePtr(stride, positive) => {
                     while memory[data_ptr] != 0 {
                         if *positive {
@@ -191,7 +191,7 @@ impl Program {
                         }
                     }
                 }
-                // TODO add documentation
+                // add the current of src data to the +/- stride memory slot
                 Opcode::LoopMoveData(stride, positive) => {
                     if memory[data_ptr] != 0 {
                         let new_addr = if *positive {
