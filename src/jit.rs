@@ -1,4 +1,4 @@
-use std::ptr;
+use std::{default, ptr};
 
 /// JIT Notes
 ///
@@ -18,6 +18,26 @@ use std::ptr;
 /// - we then change the permissions of allocated range to READ_EXEC (RX)
 /// - cast the pointer to a function pointer
 /// - perform a function call
+
+struct CodeBuilder {
+    bytes: Vec<u8>,
+}
+
+impl CodeBuilder {
+    fn new() -> Self {
+        Self { bytes: vec![] }
+    }
+
+    fn emit_bytes(&mut self, bytes: &[u8]) -> &mut Self {
+        self.bytes.extend_from_slice(bytes);
+        self
+    }
+
+    fn emit_u32(&mut self, val: u32) -> &mut Self {
+        self.bytes.extend_from_slice(val.to_le_bytes().as_slice());
+        self
+    }
+}
 
 /// Stores code bytes in executable memory
 /// Return a pointer to this memory segment
