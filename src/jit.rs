@@ -1,4 +1,4 @@
-use std::ptr;
+use std::{default, ptr};
 
 /// JIT Notes
 ///
@@ -18,6 +18,26 @@ use std::ptr;
 /// - we then change the permissions of allocated range to READ_EXEC (RX)
 /// - cast the pointer to a function pointer
 /// - perform a function call
+
+struct CodeBuilder {
+    bytes: Vec<u8>,
+}
+
+impl CodeBuilder {
+    fn new() -> Self {
+        Self { bytes: vec![] }
+    }
+
+    /// Append new bytes to code stream
+    fn emit_bytes(&mut self, bytes: &[u8]) {
+        self.bytes.extend_from_slice(bytes);
+    }
+
+    /// Append u32 (as little endian bytes) to the code stream
+    fn emit_u32(&mut self, val: u32) {
+        self.bytes.extend_from_slice(val.to_le_bytes().as_slice());
+    }
+}
 
 /// Stores code bytes in executable memory
 /// Return a pointer to this memory segment
@@ -54,4 +74,53 @@ fn allocate_code(code: &[u8]) -> *mut libc::c_void {
 
     // return pointer to allocated memory
     p
+}
+
+#[cfg(test)]
+mod tests {
+    use std::mem::transmute;
+
+    use crate::jit::{CodeBuilder, allocate_code};
+
+    #[test]
+    fn test_jit_execution() {
+        // I want to JIT compile a function that takes
+        // two arguments a and b
+        // and returns 2 * ( a + b )
+        // fn double_sum(a: i32, b: i32) -> i32 {
+        //      2 * (a + b)
+        // }
+
+        // based on x86-64 System V ABI
+        // a = EDI
+        // b = ESI
+
+        // Assembly
+        // mov eax, edi
+        // add eax, esi
+        // shl eax, 1
+        // ret
+
+        let mut builder = CodeBuilder::new();
+
+        // mov eax, edi
+        // 89 f8
+        builder.emit_bytes(&[0x89, 0xf8]);
+        // add eax, esi
+        // 01 f0
+        builder.emit_bytes(&[0x01, 0xf0]);
+        // shl eax, 1
+        // d1, e0
+        builder.emit_bytes(&[0xd1, 0xe0]);
+        // ret
+        // c3
+        builder.emit_bytes(&[0xc3]);
+
+        // cast to fn
+        let p = allocate_code(&builder.bytes);
+        let double_add: extern "C" fn(i32, i32) -> i32 = unsafe { transmute(p) };
+
+        assert_eq!(double_add(1, 2), 6);
+        assert_eq!(double_add(34, 22), 112);
+    }
 }
