@@ -1,12 +1,28 @@
 use std::{mem, ptr};
 
-fn execute_jit() {
-    // use mmap to create page algined memory (RW)
-    // copy code into page
-    // use mprotect to change the permissions to (RX)
-    // cast to a function and execute
+/// JIT Notes
+///
+/// there are two phases
+/// 1. Generate the instruction stream
+/// 2. Put the instruction stream in memory and then execute it
+///
+/// Generate the isntruction stream
+/// - multiple ways to do this, but this is essentially compilation
+/// - take some representation of something (usually at a higher abstraction level)
+///   convert it to another representation (usually at a lower abstraction level)
+///
+/// Execute the instruction stream
+/// - first we need to allocate memory (page-aligned) to hold the instruction stream
+///     - initially set to RW permissions (os dependent)
+/// - next we copy the instruction stream to the allocated memory
+/// - we then change the permissions of allocated range to READ_EXEC (RX)
+/// - cast the pointer to a function pointer
+/// - perform a function call
 
-    let code: [u8; 6] = [0xB8, 42, 0x00, 0x00, 0x00, 0xC3];
+fn execute_jit() {
+    // mov eax edi
+    // ret
+    let code: [u8; 3] = [0x89, 0xF8, 0xC3];
 
     // create page aligned memory
     let p = unsafe {
@@ -34,14 +50,13 @@ fn execute_jit() {
         if libc::mprotect(p, code.len(), libc::PROT_READ | libc::PROT_EXEC) != 0 {
             // free memory
             libc::munmap(p, code.len());
-            panic!("failed to ")
+            panic!("failed to change allocated memory permissions")
         }
     }
 
-    let f: extern "C" fn() -> i32 =
-        unsafe { mem::transmute::<*mut libc::c_void, extern "C" fn() -> i32>(p) };
-
-    println!("{}", f());
+    // cast to a function pointer
+    let f: extern "C" fn(i32) -> i32 = unsafe { mem::transmute(p) };
+    println!("{}", f(23232));
 }
 
 #[cfg(test)]
