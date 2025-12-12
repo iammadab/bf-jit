@@ -28,11 +28,13 @@ impl CodeBuilder {
         Self { bytes: vec![] }
     }
 
+    /// Append new bytes to code stream
     fn emit_bytes(&mut self, bytes: &[u8]) -> &mut Self {
         self.bytes.extend_from_slice(bytes);
         self
     }
 
+    /// Append u32 (as little endian bytes) to the code stream
     fn emit_u32(&mut self, val: u32) -> &mut Self {
         self.bytes.extend_from_slice(val.to_le_bytes().as_slice());
         self
