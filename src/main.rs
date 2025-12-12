@@ -6,6 +6,8 @@ use std::{
     str::Chars,
 };
 
+mod jit;
+
 const MEMORY_SIZE: usize = 30_000;
 
 #[derive(PartialEq, Clone, Hash, Eq, Debug)]
