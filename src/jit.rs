@@ -1,4 +1,4 @@
-use std::{mem, ptr};
+use std::ptr;
 
 /// JIT Notes
 ///
@@ -19,11 +19,9 @@ use std::{mem, ptr};
 /// - cast the pointer to a function pointer
 /// - perform a function call
 
-fn execute_jit() {
-    // mov eax edi
-    // ret
-    let code: [u8; 3] = [0x89, 0xF8, 0xC3];
-
+/// Stores code bytes in executable memory
+/// Return a pointer to this memory segment
+fn allocate_code(code: &[u8]) -> *mut libc::c_void {
     // create page aligned memory
     let p = unsafe {
         libc::mmap(
@@ -37,7 +35,7 @@ fn execute_jit() {
     };
 
     if p == libc::MAP_FAILED {
-        panic!("mmap failed");
+        panic!("JIT: mmap allocation failed");
     }
 
     // copy code into allocated memory
@@ -45,26 +43,15 @@ fn execute_jit() {
         ptr::copy_nonoverlapping(code.as_ptr(), p as *mut u8, code.len());
     }
 
-    // flip protection to RX
+    // change protection to RX
     unsafe {
         if libc::mprotect(p, code.len(), libc::PROT_READ | libc::PROT_EXEC) != 0 {
-            // free memory
+            // free allocated memory
             libc::munmap(p, code.len());
             panic!("failed to change allocated memory permissions")
         }
     }
 
-    // cast to a function pointer
-    let f: extern "C" fn(i32) -> i32 = unsafe { mem::transmute(p) };
-    println!("{}", f(23232));
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::jit::execute_jit;
-
-    #[test]
-    fn test_jit_execution() {
-        execute_jit();
-    }
+    // return pointer to allocated memory
+    p
 }
