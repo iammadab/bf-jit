@@ -9,6 +9,7 @@ fn jit(program: &Program) {
 }
 fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
     let mut builder = CodeBuilder::new();
+    let mut bracket_stack = vec![];
 
     // R13 will serve as the data pointer
     // movabs r13, mem_ptr
@@ -40,11 +41,43 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
             }
 
             Opcode::ReadStdin => {
-                todo!()
+                // mov rax, 0  (SYS_read)
+                builder.emit_bytes(&[0x48, 0xC7, 0xC0]);
+                builder.emit_u32(0);
+
+                // mov rdi, 0  (stdin)
+                builder.emit_bytes(&[0x48, 0xC7, 0xC7]);
+                builder.emit_u32(0);
+
+                // mov rsi, r13
+                builder.emit_bytes(&[0x4C, 0x89, 0xEE]);
+
+                // mov rdx, 1
+                builder.emit_bytes(&[0x48, 0xC7, 0xC2]);
+                builder.emit_u32(1);
+
+                // syscall
+                builder.emit_bytes(&[0x0F, 0x05]);
             }
 
             Opcode::WriteStdout => {
-                todo!()
+                // mov rax, 1  (SYS_write)
+                builder.emit_bytes(&[0x48, 0xC7, 0xC0]);
+                builder.emit_u32(1);
+
+                // mov rdi, 1  (stdout)
+                builder.emit_bytes(&[0x48, 0xC7, 0xC7]);
+                builder.emit_u32(1);
+
+                // mov rsi, r13
+                builder.emit_bytes(&[0x4C, 0x89, 0xEE]);
+
+                // mov rdx, 1
+                builder.emit_bytes(&[0x48, 0xC7, 0xC2]);
+                builder.emit_u32(1);
+
+                // syscall
+                builder.emit_bytes(&[0x0F, 0x05]);
             }
 
             Opcode::LoopSetToZero => {
@@ -154,14 +187,55 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
             }
 
             Opcode::JumpIfDataZero(_) => {
-                todo!()
+                // cmp byte ptr [r13 + 0], 0
+                // jz <matching_bracket>
+
+                // push the branch test RIP to the stack
+                bracket_stack.push(builder.len());
+
+                // cmp byte ptr [r13 + 0], 0
+                builder.emit_bytes(&[0x41, 0x80, 0x7D, 0x00, 0x00]);
+
+                // jz <p1>
+                builder.emit_bytes(&[0x0F, 0x84]);
+
+                // push the patch point to the stack
+                bracket_stack.push(builder.len());
+
+                builder.emit_u32(0); // placeholder
             }
 
             Opcode::JumpIfDataNotZero(_) => {
-                todo!()
+                // cmp byte ptr [r13 + 0], 0
+                // jnz <matching_bracket>
+
+                // cmp byte ptr [r13 + 0], 0
+                builder.emit_bytes(&[0x41, 0x80, 0x7D, 0x00, 0x00]);
+
+                // jnz <p2>
+                builder.emit_bytes(&[0x0F, 0x85]);
+                let jnz_p2 = builder.len();
+                builder.emit_u32(0); // patch point
+
+                let end = builder.len();
+
+                let opening_bracket_patch_point = bracket_stack.pop().unwrap();
+                let opening_next_rip = opening_bracket_patch_point + 4;
+
+                // calculate the patch value for the opening bracket
+                let jump_point = (end as i64) - (opening_next_rip as i64);
+                builder.patch_u32(opening_bracket_patch_point, jump_point as i32 as u32);
+
+                // calculate the patch value for closing brakcet
+                let opening_start = bracket_stack.pop().unwrap();
+                let jump_point = (opening_start as i64) - (end as i64);
+                builder.patch_u32(jnz_p2, jump_point as i32 as u32);
             }
         }
     }
+
+    // ret
+    builder.emit_bytes(&[0xC3]);
 
     builder.take_bytes()
 }
