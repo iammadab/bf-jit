@@ -1,4 +1,4 @@
-use crate::{interpreter::interpret, parser::Program};
+use crate::{interpreter::interpret, jit::jit_run, parser::Program};
 use std::fs;
 
 mod interpreter;
@@ -11,5 +11,6 @@ fn main() {
     let source = fs::read_to_string(&args[1]).unwrap();
 
     let program = Program::from_source(source);
-    interpret(&program);
+    // interpret(&program);
+    jit_run(&program);
 }

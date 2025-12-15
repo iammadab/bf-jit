@@ -4,7 +4,7 @@ use crate::{
 };
 use std::mem;
 
-fn jit(program: &Program) {
+pub(crate) fn jit_run(program: &Program) {
     let mut memory = Box::new([0_u8; 30_000]);
     let code = compile(program, memory.as_mut_ptr());
     let func_ptr = allocate_code(code.as_slice());
@@ -15,6 +15,10 @@ fn jit(program: &Program) {
 fn compile(program: &Program, mem_ptr: *mut u8) -> Vec<u8> {
     let mut builder = CodeBuilder::new();
     let mut bracket_stack = vec![];
+
+    // prologue: push current r13 value to the stack
+    // push r13
+    builder.emit_bytes(&[0x41, 0x55]);
 
     // R13 will serve as the data pointer
     // movabs r13, mem_ptr
@@ -238,6 +242,10 @@ fn compile(program: &Program, mem_ptr: *mut u8) -> Vec<u8> {
             }
         }
     }
+
+    // epilogue: pop back the value of r13
+    // pop r13
+    builder.emit_bytes(&[0x41, 0x5D]);
 
     // ret
     builder.emit_bytes(&[0xC3]);
