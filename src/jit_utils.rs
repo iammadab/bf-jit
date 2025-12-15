@@ -28,6 +28,11 @@ impl CodeBuilder {
         Self { bytes: vec![] }
     }
 
+    /// Returns the len of the code stream
+    pub(crate) fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
     /// Append new bytes to code stream
     pub(crate) fn emit_bytes(&mut self, bytes: &[u8]) {
         self.bytes.extend_from_slice(bytes);
@@ -43,7 +48,7 @@ impl CodeBuilder {
         self.bytes.extend_from_slice(val.to_le_bytes().as_slice());
     }
 
-    // Consume CodeBuilder return bytes
+    /// Consume CodeBuilder return bytes
     pub(crate) fn take_bytes(self) -> Vec<u8> {
         self.bytes
     }
