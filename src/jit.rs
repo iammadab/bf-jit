@@ -54,7 +54,19 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
     builder.emit_u64(mem_ptr as u64);
 
     for insn in program.instructions {
-        match insn {}
+        match insn {
+            Opcode::IncPtr(count) => {
+                // add r13 imm32
+                builder.emit_bytes(&[0x49, 0x81, 0xC5]);
+                builder.emit_u32(count as u32);
+            }
+
+            Opcode::DecPtr(count) => {
+                // sub r13, imm32
+                builder.emit_bytes(&[0x49, 0x81, 0xED]);
+                builder.emit_u32(count as u32);
+            }
+        }
     }
 
     builder.take_bytes()
