@@ -53,42 +53,23 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
             }
 
             Opcode::LoopMovePtr(stride, positive) => {
-                // if current value is not zero
-                // move the pointer by some stride
-                // continue until you hit a zero
-                //
-                // cmp if r13 is 0
-                // if zero then jump (custom address, I think this should be the address for the
-                // next instruction)
-                // - how do I know what the custom address is going to be?
-                // - I could create the bytes separately
-                // if not zero then update the data pointer
-
-                // cmp byte ptr [r13 + 0], 0
-                // jz <next_insn>
-                // add r13 imm32
-                // jmp <start>
-                // <next_insn>
-
-                // jump computes target as follows
-                // next_rip + signed(displacement)
+                // start:
+                //  cmp byte ptr [r13 + 0], 0
+                //  jz end
+                //  add r13, imm32              # sub if negative stride
+                //  jmp start
+                // end:
+                //  ...
 
                 let start = builder.len();
 
                 // cmp byte ptr [r13 + 0], 0
                 builder.emit_bytes(&[0x41, 0x80, 0x7D, 0x00, 0x00]);
 
-                // if zero then jump to next instruction
-                // jz <next_insn>
-                // we need to figure out what next instruction is
-                // this is relative to the size of jz
-                // so len after push
-
+                // jz <p1>
                 builder.emit_bytes(&[0x0F, 0x84]);
-                let disp_pos = builder.len();
-                // this value will be patched later
-                builder.emit_u32(0);
-                let first_patch_rip = builder.len();
+                let jz_p1 = builder.len();
+                builder.emit_u32(0); // placeholder
 
                 // move r13 by stride amount
                 if *positive {
@@ -101,16 +82,29 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
                     builder.emit_u32(*stride as u32);
                 }
 
-                // seems we'd have to patch this one also
+                // jump <p2>
                 builder.emit_bytes(&[0xE9]);
+                let jump_p2 = builder.len();
                 builder.emit_u32(0);
 
-                let end = builder.len();
-                // end - first_patch_rip should give the first patch
-                // while end - start should give us the beginning byte
+                // patch p1
+                // p1 should exit the loop (take us to end)
+                // we are moving relative to RIP at the end of 'jz end'
+                //  this is given by jz_p1 + 4
+                // hence p1 = (jump_p2 + 4) - (jz_p1 + 4)
 
-                // jump back to start
-                todo!()
+                let end = builder.len();
+                let jz_end = jz_p1 + 4;
+
+                let p1 = (end as i64) - (jz_end as i64);
+                builder.patch_u32(jz_p1, p1 as i32 as u32);
+
+                // patch p2
+                // p2 should go back to the start of the loop
+                // this is represented by the start variable
+                // all we need to do is calculate the stride from end to start
+                let p2 = (start as i64) - (end as i64);
+                builder.patch_u32(jump_p2, p2 as i32 as u32);
             }
 
             Opcode::LoopMoveData(stride, positive) => {
