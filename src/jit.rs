@@ -30,11 +30,13 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
             }
 
             Opcode::IncData(count) => {
-                todo!()
+                // add byte ptr [r13 + 0], imm8
+                builder.emit_bytes(&[0x41, 0x80, 0x45, 0x00, count]);
             }
 
             Opcode::DecData(count) => {
-                todo!()
+                // sub byte ptr [r13 + 0], imm8
+                builder.emit_bytes(&[0x41, 0x80, 0x6D, 0x00, count]);
             }
         }
     }
