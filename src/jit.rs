@@ -48,8 +48,9 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
             }
 
             Opcode::LoopSetToZero => {
-                // xor r13, r13
-                builder.emit_bytes(&[0x4D, 0x31, 0xED]);
+                // zero out the contents of r13
+                // mov byte ptr [r13], 0
+                builder.emit_bytes(&[0x41, 0xC6, 0x45, 0x00, 0x00]);
             }
 
             Opcode::LoopMovePtr(stride, positive) => {
@@ -108,7 +109,48 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
             }
 
             Opcode::LoopMoveData(stride, positive) => {
-                todo!()
+                // start:
+                //  cmp byte ptr [r13 + 0], 0
+                //  jz end
+                //  lea rax, [r13 + imm32]
+                //  mov cl, byte ptr [r13 + 0]
+                //  add byte ptr [rax] cl
+                //  mov byte ptr [r13], 0
+                // end:
+
+                // cmp byte ptr [r13 + 0], 0
+                builder.emit_bytes(&[0x41, 0x80, 0x7D, 0x00, 0x00]);
+
+                // jz <end>
+                builder.emit_bytes(&[0x0F, 0x84]);
+                let jz_p1 = builder.len();
+                builder.emit_u32(0);
+
+                // compute the signed stride
+                let signed_stride = if *positive {
+                    *stride as i32
+                } else {
+                    -(*stride as i32)
+                };
+
+                //  lea rax, [r13 + imm32]
+                builder.emit_bytes(&[0x49, 0x8D, 0x85]);
+                builder.emit_u32(signed_stride as u32);
+
+                // mov cl, byte ptr [r13 + 0]
+                builder.emit_bytes(&[0x41, 0x8A, 0x4D, 0x00]);
+
+                // add byte ptr [rax], cl
+                builder.emit_bytes(&[0x00, 0x08]);
+
+                // mov byte ptr [r13], 0
+                builder.emit_bytes(&[0x41, 0xC6, 0x45, 0x00, 0x00]);
+
+                let end = builder.len();
+
+                // patch jz
+                let p1 = (end as i64) - ((jz_p1 + 4) as i64);
+                builder.patch_u32(jz_p1, p1 as i32 as u32);
             }
 
             Opcode::JumpIfDataZero(_) => {
