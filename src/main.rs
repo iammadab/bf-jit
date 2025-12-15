@@ -3,6 +3,7 @@ use std::fs;
 
 mod interpreter;
 mod jit;
+mod jit_utils;
 mod parser;
 
 fn main() {
