@@ -42,6 +42,11 @@ impl CodeBuilder {
     pub(crate) fn emit_u64(&mut self, val: u64) {
         self.bytes.extend_from_slice(val.to_le_bytes().as_slice());
     }
+
+    // Consume CodeBuilder return bytes
+    pub(crate) fn take_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
 }
 
 /// Stores code bytes in executable memory

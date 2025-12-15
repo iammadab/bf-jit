@@ -53,6 +53,9 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
     builder.emit_bytes(&[0x49, 0xBD]);
     builder.emit_u64(mem_ptr as u64);
 
-    for insn in program.instructions {}
-    todo!()
+    for insn in program.instructions {
+        match insn {}
+    }
+
+    builder.take_bytes()
 }
