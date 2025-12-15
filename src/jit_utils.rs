@@ -19,29 +19,34 @@ use std::ptr;
 /// - cast the pointer to a function pointer
 /// - perform a function call
 
-struct CodeBuilder {
+pub(crate) struct CodeBuilder {
     bytes: Vec<u8>,
 }
 
 impl CodeBuilder {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { bytes: vec![] }
     }
 
     /// Append new bytes to code stream
-    fn emit_bytes(&mut self, bytes: &[u8]) {
+    pub(crate) fn emit_bytes(&mut self, bytes: &[u8]) {
         self.bytes.extend_from_slice(bytes);
     }
 
     /// Append u32 (as little endian bytes) to the code stream
-    fn emit_u32(&mut self, val: u32) {
+    pub(crate) fn emit_u32(&mut self, val: u32) {
+        self.bytes.extend_from_slice(val.to_le_bytes().as_slice());
+    }
+
+    // Append u64 (as little endian bytes) to the code stream
+    pub(crate) fn emit_u64(&mut self, val: u64) {
         self.bytes.extend_from_slice(val.to_le_bytes().as_slice());
     }
 }
 
 /// Stores code bytes in executable memory
 /// Return a pointer to this memory segment
-fn allocate_code(code: &[u8]) -> *mut libc::c_void {
+pub(crate) fn allocate_code(code: &[u8]) -> *mut libc::c_void {
     // create page aligned memory
     let p = unsafe {
         libc::mmap(

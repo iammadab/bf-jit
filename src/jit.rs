@@ -36,8 +36,23 @@
 // but when jumping in assembly the position changes
 // I think I can also use a stack
 
-use crate::parser::Program;
+use crate::{
+    jit_utils::CodeBuilder,
+    parser::{Opcode, Program},
+};
 
-fn compile(program: &Program) -> &[u8] {
+fn jit(program: &Program) {
+    let memory = [0_u8; 30_000];
+    compile(program, memory.as_ptr());
+}
+fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
+    let mut builder = CodeBuilder::new();
+
+    // R13 will serve as the data pointer
+    // movabs r13, mem_ptr
+    builder.emit_bytes(&[0x49, 0xBD]);
+    builder.emit_u64(mem_ptr as u64);
+
+    for insn in program.instructions {}
     todo!()
 }
