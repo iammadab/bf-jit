@@ -1,13 +1,18 @@
 use crate::{
-    jit_utils::CodeBuilder,
+    jit_utils::{CodeBuilder, allocate_code},
     parser::{Opcode, Program},
 };
+use std::mem;
 
 fn jit(program: &Program) {
-    let memory = [0_u8; 30_000];
-    compile(program, memory.as_ptr());
+    let mut memory = Box::new([0_u8; 30_000]);
+    let code = compile(program, memory.as_mut_ptr());
+    let func_ptr = allocate_code(code.as_slice());
+    let exec: extern "C" fn() -> () = unsafe { mem::transmute(func_ptr) };
+    exec();
 }
-fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
+
+fn compile(program: &Program, mem_ptr: *mut u8) -> Vec<u8> {
     let mut builder = CodeBuilder::new();
     let mut bracket_stack = vec![];
 
