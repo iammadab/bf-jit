@@ -48,6 +48,12 @@ impl CodeBuilder {
         self.bytes.extend_from_slice(val.to_le_bytes().as_slice());
     }
 
+    /// Modify code stream contents within a certain range
+    pub(crate) fn patch_u32(&mut self, pos: usize, val: u32) {
+        let bytes = val.to_le_bytes();
+        self.bytes[pos..pos + 4].copy_from_slice(&bytes);
+    }
+
     /// Consume CodeBuilder return bytes
     pub(crate) fn take_bytes(self) -> Vec<u8> {
         self.bytes

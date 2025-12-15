@@ -70,10 +70,25 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
                 // jmp <start>
                 // <next_insn>
 
+                // jump computes target as follows
+                // next_rip + signed(displacement)
+
+                let start = builder.len();
+
                 // cmp byte ptr [r13 + 0], 0
                 builder.emit_bytes(&[0x41, 0x80, 0x7D, 0x00, 0x00]);
 
                 // if zero then jump to next instruction
+                // jz <next_insn>
+                // we need to figure out what next instruction is
+                // this is relative to the size of jz
+                // so len after push
+
+                builder.emit_bytes(&[0x0F, 0x84]);
+                let disp_pos = builder.len();
+                // this value will be patched later
+                builder.emit_u32(0);
+                let first_patch_rip = builder.len();
 
                 // move r13 by stride amount
                 if *positive {
@@ -85,6 +100,14 @@ fn compile(program: &Program, mem_ptr: *const u8) -> Vec<u8> {
                     builder.emit_bytes(&[0x49, 0x81, 0xED]);
                     builder.emit_u32(*stride as u32);
                 }
+
+                // seems we'd have to patch this one also
+                builder.emit_bytes(&[0xE9]);
+                builder.emit_u32(0);
+
+                let end = builder.len();
+                // end - first_patch_rip should give the first patch
+                // while end - start should give us the beginning byte
 
                 // jump back to start
                 todo!()
